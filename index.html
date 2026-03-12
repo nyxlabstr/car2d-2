@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NyxCar Highway - Nostaljik</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #020617;
+            color: white;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.4);
+        }
+        .hud-top {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        #nos-gauge {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 150px;
+            height: 10px;
+            background: #1e293b;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #nos-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            box-shadow: 0 0 10px #3b82f6;
+            transition: width 0.1s;
+        }
+        .car-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .car-card.selected {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.05);
+        }
+        #bonus-popup {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            font-weight: 900;
+            color: #fbbf24;
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.8);
+            pointer-events: none;
+            display: none;
+            z-index: 30;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container" class="relative w-full h-screen">
+    <div class="hud-top">
+        <div class="bg-black/60 p-4 rounded-xl border-l-4 border-yellow-500 backdrop-blur-md">
+            <div class="text-[10px] text-yellow-400 font-black uppercase tracking-widest">Puan</div>
+            <div id="score-display" class="text-2xl font-mono tracking-tighter">0</div>
+        </div>
+        <div class="bg-black/60 p-4 rounded-xl border-r-4 border-blue-500 backdrop-blur-md text-right">
+            <div class="text-[10px] text-blue-400 font-black uppercase tracking-widest">Hız</div>
+            <div id="speed-meter" class="text-2xl font-mono tracking-tighter">0 KM/H</div>
+        </div>
+    </div>
+
+    <div id="bonus-popup">NEAR MISS!</div>
+
+    <div id="nos-gauge">
+        <div class="text-[8px] absolute -top-4 left-0 uppercase font-bold text-blue-400">Nitro (E)</div>
+        <div id="nos-fill"></div>
+    </div>
+
+    <canvas id="raceCanvas"></canvas>
+
+    <!-- Ana Menü / Araç Seçimi -->
+    <div id="menu-screen" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center z-50 p-6 overflow-y-auto">
+        <div class="text-blue-500 text-sm font-bold tracking-[0.5em] mb-2 uppercase text-center">Nyx Highway</div>
+        <h1 class="text-6xl font-black italic text-white mb-8 tracking-tighter text-center">ARAÇ <span class="text-blue-600">SEÇ</span></h1>
+        
+        <div class="flex flex-wrap justify-center gap-4 mb-10 max-w-5xl">
+            <div onclick="selectCar('gtr')" id="card-gtr" class="car-card selected p-4 bg-slate-900 rounded-2xl w-40 text-center">
+                <div class="text-[10px] font-bold text-slate-500 mb-1">NISSAN</div>
+                <div class="text-lg font-black mb-2">GT-R R35</div>
+                <div class="h-1 w-full bg-blue-500 rounded-full mb-1"></div>
+            </div>
+            
+            <div onclick="selectCar('amg')" id="card-amg" class="car-card p-4 bg-slate-900 rounded-2xl w-40 text-center">
+                <div class="text-[10px] font-bold text-slate-500 mb-1">MERCEDES</div>
+                <div class="text-lg font-black mb-2">AMG GT</div>
+                <div class="h-1 w-full bg-slate-400 rounded-full mb-1"></div>
+            </div>
+
+            <div onclick="selectCar('m4')" id="card-m4" class="car-card p-4 bg-slate-900 rounded-2xl w-40 text-center">
+                <div class="text-[10px] font-bold text-slate-500 mb-1">BMW</div>
+                <div class="text-lg font-black mb-2">M4 COUPE</div>
+                <div class="h-1 w-full bg-yellow-500 rounded-full mb-1"></div>
+            </div>
+
+            <div onclick="selectCar('supra')" id="card-supra" class="car-card p-4 bg-slate-900 rounded-2xl w-40 text-center">
+                <div class="text-[10px] font-bold text-slate-500 mb-1">TOYOTA</div>
+                <div class="text-lg font-black mb-2">SUPRA MK4</div>
+                <div class="h-1 w-full bg-orange-600 rounded-full mb-1"></div>
+            </div>
+        </div>
+
+        <button id="start-btn" class="px-20 py-5 bg-white text-black font-black rounded-full transition-all hover:scale-105 active:scale-95 italic text-xl">GAZLA</button>
+    </div>
+
+    <div id="game-over" class="absolute inset-0 bg-red-950/98 flex flex-col items-center justify-center hidden z-50">
+        <h2 class="text-8xl font-black italic mb-2 text-white tracking-tighter">KAZA!</h2>
+        <div id="final-score" class="text-2xl text-yellow-400 font-bold mb-8">Puan: 0</div>
+        <button onclick="location.reload()" class="px-16 py-4 bg-white text-black font-black italic rounded-full uppercase">Yeniden Dene</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('raceCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = 600;
+    canvas.height = window.innerHeight;
+
+    let gameActive = false;
+    let score = 0;
+    let speed = 0;
+    let playerX = canvas.width / 2;
+    let playerY = canvas.height - 180;
+    
+    let carAngle = 0; 
+    let steerAngle = 0; 
+    let driftInertia = 0; 
+    let momentumX = 0;
+    
+    let nosLevel = 100;
+    let isNosActive = false;
+    let isBraking = false;
+
+    let roadOffset = 0;
+    let enemies = [];
+    let particles = [];
+    let keys = {};
+
+    const carData = {
+        gtr: { color: '#e2e8f0', accel: 0.12, max: 22, drift: 0.55 },
+        amg: { color: '#475569', accel: 0.14, max: 25, drift: 0.45 },
+        m4: { color: '#fbbf24', accel: 0.13, max: 22, drift: 0.85 },
+        supra: { color: '#ea580c', accel: 0.15, max: 24, drift: 0.70 }
+    };
+    let selectedCar = 'gtr';
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function selectCar(key) {
+        selectedCar = key;
+        document.querySelectorAll('.car-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('card-' + key).classList.add('selected');
+    }
+
+    function showBonus() {
+        const popup = document.getElementById('bonus-popup');
+        popup.style.display = 'block';
+        setTimeout(() => popup.style.display = 'none', 800);
+    }
+
+    function createSmoke(x, y, color = '#94a3b8', isNos = false) {
+        particles.push({
+            x: x + (Math.random() - 0.5) * 20,
+            y: y + 40,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() * 2) + (speed / 2),
+            size: Math.random() * (isNos ? 15 : 8) + 5,
+            alpha: 0.5,
+            color: color
+        });
+    }
+
+    function drawCar(x, y, angle, carKey, isPlayer = true) {
+        const data = isPlayer ? carData[carKey] : { color: carKey }; // carKey is color hex for enemies
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        // NOS Alevi
+        if (isPlayer && isNosActive && speed > 10) {
+            ctx.fillStyle = '#60a5fa';
+            ctx.beginPath();
+            ctx.moveTo(-10, 38);
+            ctx.lineTo(0, 75 + Math.random() * 20);
+            ctx.lineTo(10, 38);
+            ctx.fill();
+        }
+
+        // Gölge
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(-24, -30, 48, 80);
+
+        // Gövde
+        ctx.fillStyle = data.color;
+        ctx.beginPath();
+        ctx.roundRect(-22, -42, 44, 84, 10);
+        ctx.fill();
+
+        // Camlar
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-18, -15, 36, 25);
+        ctx.fillRect(-18, 25, 36, 12);
+
+        // Stoplar
+        ctx.fillStyle = (isPlayer && isBraking) ? '#ff0000' : '#ef4444';
+        ctx.fillRect(-18, 38, 10, 4);
+        ctx.fillRect(8, 38, 10, 4);
+
+        ctx.restore();
+    }
+
+    function animate() {
+        if (!gameActive) return;
+
+        let shakeX = isNosActive ? (Math.random() - 0.5) * 4 : 0;
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Yol çizimi
+        roadOffset += speed;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(50, 0, canvas.width - 100, canvas.height);
+        
+        ctx.strokeStyle = '#1e293b';
+        ctx.setLineDash([60, 60]);
+        ctx.lineDashOffset = -roadOffset;
+        ctx.beginPath();
+        for(let i=1; i<=4; i++) {
+            let lx = 50 + (canvas.width - 100) * (i/5);
+            ctx.moveTo(lx, 0); ctx.lineTo(lx, canvas.height);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Yan şeritler
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(48, -10, 2, canvas.height + 20);
+        ctx.strokeRect(canvas.width - 50, -10, 2, canvas.height + 20);
+
+        // Partiküller
+        particles.forEach((p, i) => {
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            p.y += p.vy; p.alpha -= 0.02;
+            if (p.alpha <= 0) particles.splice(i, 1);
+        });
+        ctx.globalAlpha = 1;
+
+        // Kontroller
+        const stats = carData[selectedCar];
+        isNosActive = keys['KeyE'] && nosLevel > 0 && speed > 5;
+        isBraking = keys['Space'] || keys['KeyS'];
+
+        if (isNosActive) {
+            speed = Math.min(speed + 0.3, 32);
+            nosLevel -= 0.6;
+            createSmoke(playerX, playerY, '#3b82f6', true);
+        } else {
+            if (keys['KeyW']) {
+                speed = Math.min(speed + stats.accel, stats.max);
+                if (nosLevel < 100) nosLevel += 0.05;
+            }
+            if (isBraking) {
+                let brakeForce = keys['KeyW'] ? 0.3 : 0.6;
+                speed = Math.max(speed - brakeForce, 0);
+            }
+            if (!keys['KeyW'] && !isBraking) speed = Math.max(speed - 0.05, 0);
+        }
+
+        document.getElementById('nos-fill').style.width = nosLevel + "%";
+
+        // Sürüş ve Drift
+        let steerInput = (keys['KeyA'] ? -1 : 0) + (keys['KeyD'] ? 1 : 0);
+        steerAngle += (steerInput * 0.12 - steerAngle) * 0.15;
+        
+        let dFact = isBraking ? 0.9 : stats.drift;
+        driftInertia += steerAngle * dFact; 
+        driftInertia *= 0.94; 
+
+        carAngle = (steerAngle * 0.4) + (driftInertia * 0.2);
+        momentumX += (steerAngle * 1.6) + (driftInertia * 1.6);
+        momentumX *= 0.88;
+
+        playerX += momentumX;
+        playerX = Math.max(75, Math.min(canvas.width - 75, playerX));
+
+        // Skor Hesaplama (Mesafe bazlı)
+        if (speed > 1) score += Math.floor(speed / 5);
+
+        // Trafik ve Yakın Geçiş
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            e.y += speed - e.speed;
+            
+            // Trafik arabalarını çiz
+            drawCar(e.x, e.y, 0, e.color, false);
+
+            // Near Miss (Yakın Geçiş Bonus)
+            if (!e.bonusGiven && Math.abs(e.y - playerY) < 60 && Math.abs(e.x - playerX) < 85 && Math.abs(e.x - playerX) > 42) {
+                e.bonusGiven = true;
+                score += 1500;
+                showBonus();
+            }
+
+            // Kaza Kontrol
+            if (Math.abs(e.x - playerX) < 38 && Math.abs(e.y - playerY) < 75) {
+                gameActive = false;
+                document.getElementById('game-over').style.display = 'flex';
+                document.getElementById('final-score').innerText = "Toplam Puan: " + score;
+            }
+            
+            // Ekrandan çıkan arabaları sil
+            if (e.y > canvas.height + 200 || e.y < -500) enemies.splice(i, 1);
+        }
+
+        drawCar(playerX + shakeX, playerY, carAngle, selectedCar, true);
+
+        document.getElementById('score-display').innerText = score.toLocaleString();
+        document.getElementById('speed-meter').innerText = Math.floor(speed * 11) + " KM/H";
+
+        requestAnimationFrame(animate);
+    }
+
+    function spawnEnemy() {
+        if (!gameActive) return;
+        const laneWidth = (canvas.width - 100) / 5;
+        const lanes = [
+            50 + laneWidth * 0.5,
+            50 + laneWidth * 1.5,
+            50 + laneWidth * 2.5,
+            50 + laneWidth * 3.5,
+            50 + laneWidth * 4.5
+        ];
+        
+        const colors = ['#334155', '#475569', '#1e293b', '#64748b', '#94a3b8'];
+        
+        enemies.push({
+            x: lanes[Math.floor(Math.random() * lanes.length)],
+            y: -200,
+            speed: 4 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            bonusGiven: false
+        });
+        
+        // Arabaların spawn hızı oyuncu hızına göre artar
+        setTimeout(spawnEnemy, Math.max(300, 1600 - (speed * 45)));
+    }
+
+    document.getElementById('start-btn').onclick = () => {
+        document.getElementById('menu-screen').style.display = 'none';
+        gameActive = true;
+        spawnEnemy();
+        animate();
+    };
+</script>
+
+</body>
+</html>
